@@ -1,5 +1,7 @@
 package algorithmsAndDataStructures;
 
+import java.util.Map;
+
 /**
  * This class contains the main() function for this project.
  * 
@@ -25,7 +27,7 @@ public class Main {
         System.out.println("Total number of vertices = " + myGraph.size());
         System.out.println("Total number of edges = " + myGraph.getEdgeCount());
 
-        myGraph.print();
+        // myGraph.print();
 
         // System.out.println("Computing minimum cut...");
         // System.out.println("Minimum cut = " + myGraph.getMinCut());
@@ -33,6 +35,16 @@ public class Main {
         // int n = 5;
         // System.out.println("Finding the " + n + " largest SCC groups...");
         // myGraph.printSccGroups(n);
+
+        int startVId = 1;
+        int destVId;
+        Map<Integer, Float> shortestPaths = myGraph.getShortestPaths(startVId);
+        int[] vertexPathsToOutput = new int[] { 7, 37, 59, 82, 99, 115, 133, 165, 188, 197 };
+        for (int i = 0; i < vertexPathsToOutput.length; i += 1) {
+            destVId = vertexPathsToOutput[i];
+            System.out.println("Distance from Vertex " + startVId + " to Vertex " + destVId + " = "
+                    + shortestPaths.get(destVId));
+        }
 
     }
 

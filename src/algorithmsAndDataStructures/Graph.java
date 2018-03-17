@@ -27,6 +27,9 @@ public class Graph extends HashMap<Integer, Vertex> {
     // Declare a serialVersionUID to make the compiler happy.
     private static final long serialVersionUID = -3326285451301575854L;
 
+    // Initialize constants.
+    private final float MAXPATH = 1000000;
+
     // Declare private variables.
     private boolean isDirected;
     private Deque<Integer> finishingOrder = new ArrayDeque<>();
@@ -81,7 +84,7 @@ public class Graph extends HashMap<Integer, Vertex> {
      * 
      * @param line The adjacency list data (EG, from a text file).
      */
-    public void parseAdjacencyListLine(String line) {
+    private void parseAdjacencyListLine(String line) {
 
         String vertexDelims = "[\t]+";
         String edgeDelims = "[,]+";
@@ -117,7 +120,7 @@ public class Graph extends HashMap<Integer, Vertex> {
      *
      * @param line The edge list data (EG, from a text file).
      */
-    public void parseEdgeListLine(String line) {
+    private void parseEdgeListLine(String line) {
 
         // Convert the string to an array of integers and read them.
         String delims = "[ ]+";
@@ -287,7 +290,7 @@ public class Graph extends HashMap<Integer, Vertex> {
      * @param trials The number of random cut trials to perform.
      * @return The user's response to confirmation.
      */
-    public static String minCutWarning(int trials) {
+    private static String minCutWarning(int trials) {
 
         LocalTime t1 = LocalTime.parse("13:43", DateTimeFormatter.ofPattern("HH:mm"));
         LocalTime t2 = LocalTime.parse("14:06", DateTimeFormatter.ofPattern("HH:mm"));
@@ -312,7 +315,7 @@ public class Graph extends HashMap<Integer, Vertex> {
     /**
      * Contracts one randomly selected edge in this Graph.
      */
-    public void contractOnce() {
+    private void contractOnce() {
 
         // Randomly select an edge to contract.
         int randomEdge = ThreadLocalRandom.current().nextInt(1, this.getEdgeCount() + 1);
@@ -467,6 +470,70 @@ public class Graph extends HashMap<Integer, Vertex> {
 
             this.get(currentVertex.id).sccGroup = this.currentScc;
         }
+    }
+
+    /**
+     * Finds the length of the shortest path from a starting Vertex to each other Vertex.
+     *
+     * @param startVId The id of the Vertex at which to start.
+     * @return The length of the shortest path to each other Vertex.
+     */
+    public Map<Integer, Float> getShortestPaths(int startVId) {
+
+        Map<Integer, Float> shortestPaths = new HashMap<Integer, Float>();
+
+        float minScore = 0;
+        float currentScore;
+        int minScoreId = startVId;
+        int currentVertexId;
+        Vertex currentVertex;
+        Edge currentEdge;
+
+        // While we haven't dead-ended,
+        while (minScore < this.MAXPATH) {
+            shortestPaths.put(minScoreId, minScore);
+            minScore = this.MAXPATH;
+
+            // For each Vertex already in shortestPaths,
+            for (Map.Entry<Integer, Float> entry : shortestPaths.entrySet()) {
+                currentVertexId = entry.getKey();
+                currentVertex = this.get(currentVertexId);
+
+                // For each Edge attached to the current Vertex,
+                for (int i = 0; i < currentVertex.size(); i += 1) {
+                    currentEdge = currentVertex.get(i);
+
+                    // If the destination Vertex hasn't already been logged into shortestPaths,
+                    if (shortestPaths.get(currentEdge.dest.id) == null) {
+                        
+                        // Calculate its path length.
+                        currentScore = shortestPaths.get(currentVertexId) + currentEdge.weight;
+
+                        // If this destination Vertex is the closest we've seen, remember its id and score.
+                        if (currentScore < minScore) {
+                            minScore = currentScore;
+                            minScoreId = currentEdge.dest.id;
+                        }
+                    }
+                }
+            }
+        }
+
+        // For each vertex in the graph,
+        for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
+            currentVertexId = entry.getKey();
+            
+            // If it exists in this graph but not in shortestPaths,
+            if (shortestPaths.get(currentVertexId) == null) {
+                
+                // Create an entry in shortestPaths and give it a value of this.MAXPATH.
+                shortestPaths.put(currentVertexId, this.MAXPATH);
+            }
+        }
+
+        // return shortestPaths
+
+        return shortestPaths;
     }
 
     /**
