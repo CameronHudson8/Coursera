@@ -10,7 +10,7 @@ public class Edge {
 
     // Declare public variables.
     public Vertex dest;
-    public float weight;
+    public double weight;
 
     /**
      * A constructor for this Edge object.
@@ -18,7 +18,7 @@ public class Edge {
      * @param dest The destination Vertex.
      * @param weight The weight (AKA length) of this edge.
      */
-    public Edge(Vertex dest, float weight) {
+    public Edge(Vertex dest, double weight) {
         this.dest = dest;
         this.weight = weight;
     }

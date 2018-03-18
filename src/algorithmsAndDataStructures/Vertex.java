@@ -17,6 +17,7 @@ public class Vertex extends ArrayList<Edge> {
     public int id;
     public boolean seen = false;
     public int sccGroup;
+    public double dijkstraScore;
 
     /**
      * Constructs a Vertex with the specified id.

@@ -9,10 +9,12 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Scanner;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -28,7 +30,7 @@ public class Graph extends HashMap<Integer, Vertex> {
     private static final long serialVersionUID = -3326285451301575854L;
 
     // Initialize constants.
-    private final float MAXPATH = 1000000;
+    private final double MAXPATH = 1000000;
 
     // Declare private variables.
     private boolean isDirected;
@@ -91,7 +93,7 @@ public class Graph extends HashMap<Integer, Vertex> {
 
         String[] vertexData = line.split(vertexDelims);
         int originId = Integer.parseInt(vertexData[0]);
-        this.put(originId, new Vertex(originId));
+        this.putIfAbsent(originId, new Vertex(originId));
 
         int[] edgeData;
         int weight;
@@ -148,7 +150,7 @@ public class Graph extends HashMap<Integer, Vertex> {
         Vertex v1, v2;
         Vertex v1Copy, v2Copy;
         Graph outputGraph = new Graph();
-        float weight;
+        double weight;
 
         Iterator<Entry<Integer, Vertex>> it = this.entrySet().iterator();
         Map.Entry<Integer, Vertex> pair;
@@ -478,62 +480,85 @@ public class Graph extends HashMap<Integer, Vertex> {
      * @param startVId The id of the Vertex at which to start.
      * @return The length of the shortest path to each other Vertex.
      */
-    public Map<Integer, Float> getShortestPaths(int startVId) {
+    public Map<Integer, Double> getShortestPaths(int startVId) {
 
-        Map<Integer, Float> shortestPaths = new HashMap<Integer, Float>();
+        Map<Integer, Double> shortestPaths = new HashMap<Integer, Double>();
 
-        float minScore = 0;
-        float currentScore;
-        int minScoreId = startVId;
+        Comparator<Vertex> comparator = new VertexComparator();
+        int initialCapacity = (int) Math.round(Math.log(this.size()));
+        PriorityQueue<Vertex> frontier = new PriorityQueue<>(initialCapacity, comparator);
+
+        // Initialize all dijkstra scores to the maximum path length.
+        for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
+            entry.getValue().dijkstraScore = this.MAXPATH;
+        }
+
         int currentVertexId;
         Vertex currentVertex;
         Edge currentEdge;
+        Vertex startV = this.get(startVId);
 
-        // While we haven't dead-ended,
-        while (minScore < this.MAXPATH) {
-            shortestPaths.put(minScoreId, minScore);
-            minScore = this.MAXPATH;
+        // Give startV a dijkstra score of 0 and add it to the frontier.
+        startV.dijkstraScore = 0;
+        frontier.add(startV);
 
-            // For each Vertex already in shortestPaths,
-            for (Map.Entry<Integer, Float> entry : shortestPaths.entrySet()) {
-                currentVertexId = entry.getKey();
-                currentVertex = this.get(currentVertexId);
+        double tempScore;
+        // While there are still Vertices on the frontier,
+        while (frontier.size() > 0) {
 
-                // For each Edge attached to the current Vertex,
-                for (int i = 0; i < currentVertex.size(); i += 1) {
-                    currentEdge = currentVertex.get(i);
+            // Pull the nearest Vertex from the frontier and record its final score.
+            currentVertex = frontier.poll();
+            shortestPaths.put(currentVertex.id, currentVertex.dijkstraScore);
 
-                    // If the destination Vertex hasn't already been logged into shortestPaths,
-                    if (shortestPaths.get(currentEdge.dest.id) == null) {
-                        
-                        // Calculate its path length.
-                        currentScore = shortestPaths.get(currentVertexId) + currentEdge.weight;
+            // For each Edge attached to the current Vertex,
+            for (int i = 0; i < currentVertex.size(); i += 1) {
+                currentEdge = currentVertex.get(i);
 
-                        // If this destination Vertex is the closest we've seen, remember its id and score.
-                        if (currentScore < minScore) {
-                            minScore = currentScore;
-                            minScoreId = currentEdge.dest.id;
-                        }
+                // If the destination Vertex hasn't already been logged into shortestPaths,
+                if (shortestPaths.get(currentEdge.dest.id) == null) {
+
+                    // Update the dijkstra score of the destination Vertex if the score has dropped.
+                    tempScore = currentVertex.dijkstraScore + currentEdge.weight;
+                    if (currentEdge.dest.dijkstraScore > tempScore) {
+                        frontier.remove(currentEdge.dest);
+                        currentEdge.dest.dijkstraScore = tempScore;
+                        frontier.add(currentEdge.dest);
                     }
                 }
             }
         }
 
-        // For each vertex in the graph,
+        // For each Vertex in the graph,
         for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
             currentVertexId = entry.getKey();
-            
-            // If it exists in this graph but not in shortestPaths,
+            currentVertex = entry.getValue();
+
+            // If the Vertex exists in this graph but not in shortestPaths,
             if (shortestPaths.get(currentVertexId) == null) {
-                
-                // Create an entry in shortestPaths and give it a value of this.MAXPATH.
-                shortestPaths.put(currentVertexId, this.MAXPATH);
+
+                // Create an entry in shortestPaths (with the previously assigned value of MAXPATH).
+                shortestPaths.put(currentVertexId, currentVertex.dijkstraScore);
             }
         }
-
-        // return shortestPaths
-
         return shortestPaths;
+    }
+
+    /**
+     * A comparator that selects the Vertex with the lower dijkstra score.
+     * 
+     * @author Cameron Hudson
+     * @date 2018-03-17
+     */
+    private class VertexComparator implements Comparator<Vertex> {
+
+        /**
+         * Returns the difference between the dijkstra scores of two Vertices.
+         */
+        @Override
+        public int compare(Vertex v1, Vertex v2) {
+            return (int) Math.round(v1.dijkstraScore - v2.dijkstraScore);
+        }
+
     }
 
     /**

@@ -38,14 +38,12 @@ public class Main {
 
         int startVId = 1;
         int destVId;
-        Map<Integer, Float> shortestPaths = myGraph.getShortestPaths(startVId);
+        Map<Integer, Double> shortestPaths = myGraph.getShortestPaths(startVId);
         int[] vertexPathsToOutput = new int[] { 7, 37, 59, 82, 99, 115, 133, 165, 188, 197 };
         for (int i = 0; i < vertexPathsToOutput.length; i += 1) {
             destVId = vertexPathsToOutput[i];
             System.out.println("Distance from Vertex " + startVId + " to Vertex " + destVId + " = "
                     + shortestPaths.get(destVId));
         }
-
     }
-
 }
