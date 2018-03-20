@@ -22,7 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * This object is a Graph consisting of Vertices and Edges.
  * 
  * @author Cameron Hudson
- * @date 2018-03-16
+ * @date 2018-03-20
  */
 public class Graph extends HashMap<Integer, Vertex> {
 
@@ -408,8 +408,6 @@ public class Graph extends HashMap<Integer, Vertex> {
         while (it.hasNext()) {
             pair = it.next();
             id = pair.getKey();
-            System.out.println(
-                    "Checking vertex " + id + " of " + reversed.size() + " in outer loop...");
             if (!reversed.get(id).seen) {
                 reversed.sccRecurse(id);
             }
@@ -464,7 +462,6 @@ public class Graph extends HashMap<Integer, Vertex> {
         if (this.sccStep1) {
             // Add the current Vertex to the Stack of completed vertices.
             this.finishingOrder.addFirst(currentVertex.id);
-            System.out.println("Deque now contains " + this.finishingOrder.size() + " vertices.");
         } else {
             // Add this Vertex to the current SCC.
             this.sccGroups.putIfAbsent(this.currentScc, 0);
