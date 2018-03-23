@@ -4,13 +4,17 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.math.BigInteger;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Each method corresponds to a Coursera assignment.
  * 
  * @author Cameron Hudson
- * @date 2018-03-20
+ * @date 2018-03-22
  */
 public class Assignments {
 
@@ -123,5 +127,63 @@ public class Assignments {
         }
 
         System.out.println("sumOfMedians % " + MODAMOUNT + " = " + (sum % MODAMOUNT));
+    }
+
+    /**
+     * Assignment 2.4
+     * 
+     * Task: Given a list of integers, solve the 2SUM problem for sums on the interval
+     * [-10000,10000], excluding 2*(the same number). In other words, for each sum on the interval,
+     * determine whether or not there exist two integers in the data set that, when added together,
+     * equal the sum being considered.
+     */
+    public static void assignment2_4() {
+        System.out.println("Heads up: This script takes an extremely long time to run");
+        
+        final String FILENAME = "resources/_6ec67df2804ff4b58ab21c12edcb21f8_algo1-programming_prob-2sum.txt";
+        final int SUMLOWERBOUND = -10000;
+        final int SUMUPPERBOUND = 10000;
+
+        Set<BigInteger> addends = new HashSet<BigInteger>();
+
+        BufferedReader br;
+        try {
+            br = new BufferedReader(new FileReader(new File(FILENAME)));
+            String line;
+            while ((line = br.readLine()) != null) {
+                addends.add(new BigInteger(line));
+            }
+        } catch (IOException e) {
+            System.out.println("ERROR: IO Exception!");
+            e.printStackTrace();
+        }
+
+        BigInteger i, complement;
+        boolean found;
+        int result = 0;
+
+        // For each potential sum,
+        for (int t = SUMLOWERBOUND; t <= SUMUPPERBOUND; t += 1) {
+            found = false;
+            
+            // Iterate through the HashSet once.
+            // Compute the complement that would create a sum of t.
+            // Stop early if a valid complemented is located.
+            Iterator<BigInteger> it = addends.iterator();
+            while (!found && it.hasNext()) {
+                i = it.next();
+                complement = BigInteger.valueOf(t).subtract(i);
+                
+                // The rules state that it is not valid to have 2*(number) = sum.
+                if (!complement.equals(i) && addends.contains(complement)) {
+                    result += 1;
+                    found = true;
+                    System.out.println(Integer.toString(t) + " = " + i.toString() + " + "
+                            + complement.toString());
+                }
+            }
+        }
+        System.out.println("\n");
+        System.out.println("Found " + result + " solutions.");
     }
 }
