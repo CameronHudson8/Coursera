@@ -49,10 +49,10 @@ public class Graph extends HashMap<Integer, Vertex> {
      * Constructs a Graph from a text file containing an edge or adjacency list.
      * 
      * @param filename The relative path (including filename and extension) of the text file.
-     * @param inputFormat Either "adjacency list" or "edge list".
+     * @param inputFormat Options = "adjacency list", "edge list", "edge list with header".
      * @param isDirected Whether or not this Graph is a directed graph.
      */
-    public Graph(String filename, String inputFormat, boolean isDirected) {
+    public Graph(String filename, String inputFormat, boolean isDirected, boolean preReciprocated) {
         System.out.println("Importing graph...");
 
         this.isDirected = isDirected;
@@ -62,11 +62,19 @@ public class Graph extends HashMap<Integer, Vertex> {
         try {
             BufferedReader inputBR = new BufferedReader(new FileReader(new File(filename)));
             String line;
+            boolean firstline = true;
             while ((line = inputBR.readLine()) != null) {
                 switch (inputFormat) {
                 case "adjacency list":
                     this.parseAdjacencyListLine(line);
                     break;
+                case "edge list with header":
+                    if (firstline) {
+                        // Ignore the first line.
+                        firstline = false;
+                        break;
+                    }
+                    // no break; proceed to input the edge list as normal;
                 case "edge list":
                     this.parseEdgeListLine(line);
                     break;
@@ -79,6 +87,17 @@ public class Graph extends HashMap<Integer, Vertex> {
         } catch (IOException e) {
             System.out.println("ERROR: File not found!");
         }
+
+        // If this Graph is undirected and the Edges are not already reciprocated, reciprocate the
+        // Edges.
+        if (!isDirected && !preReciprocated) {
+            Graph recipGraph = this.copy(true);
+            this.mergeGraphs(recipGraph);
+        }
+
+        System.out.println("Graph imported successfully.");
+        System.out.println("Total vertices = " + this.size());
+        System.out.println("Total edges = " + this.getEdgeCount());
     }
 
     /**
@@ -107,11 +126,7 @@ public class Graph extends HashMap<Integer, Vertex> {
             this.putIfAbsent(targetVertexId, new Vertex(targetVertexId));
             targetVertex = this.get(targetVertexId);
 
-            if (edgeData.length > 1) {
-                weight = edgeData[1];
-            } else {
-                weight = 1;
-            }
+            weight = (edgeData.length > 1) ? edgeData[1] : 1;
 
             this.get(originId).add(new Edge(targetVertex, weight));
         }
@@ -129,6 +144,7 @@ public class Graph extends HashMap<Integer, Vertex> {
         int[] lineData = Arrays.stream(line.split(delims)).mapToInt(Integer::parseInt).toArray();
         int v1Id = lineData[0];
         int v2Id = lineData[1];
+        double edgeWeight = (lineData.length > 2) ? lineData[2] : 1;
 
         // Make sure that the vertices exist;
         this.putIfAbsent(v1Id, new Vertex(v1Id));
@@ -136,7 +152,7 @@ public class Graph extends HashMap<Integer, Vertex> {
 
         // Add the edge.
         Vertex targetVertex = this.get(v2Id);
-        this.get(v1Id).add(new Edge(targetVertex, 1));
+        this.get(v1Id).add(new Edge(targetVertex, edgeWeight));
     }
 
     /**
@@ -160,11 +176,11 @@ public class Graph extends HashMap<Integer, Vertex> {
 
             outputGraph.putIfAbsent(v1.id, new Vertex(v1.id));
             v1Copy = outputGraph.get(v1.id);
-            for (int i = 0; i < v1.size(); i += 1) {
-                v2 = v1.get(i).dest;
+            for (Edge e : v1) {
+                v2 = e.dest;
                 outputGraph.putIfAbsent(v2.id, new Vertex(v2.id));
                 v2Copy = outputGraph.get(v2.id);
-                weight = v1.get(i).weight;
+                weight = e.weight;
                 if (reverse) {
                     v2Copy.add(new Edge(v1Copy, weight));
                 } else {
@@ -199,9 +215,9 @@ public class Graph extends HashMap<Integer, Vertex> {
         while (it.hasNext()) {
             pair = it.next();
             currentVertex = pair.getValue();
-            for (int i = 0; i < currentVertex.size(); i += 1) {
-                if (currentVertex.get(i).dest == v1) {
-                    currentVertex.get(i).dest = v2;
+            for (Edge e : currentVertex) {
+                if (e.dest == v1) {
+                    e.dest = v2;
                 }
             }
         }
@@ -215,10 +231,9 @@ public class Graph extends HashMap<Integer, Vertex> {
      * @param v2 The second of the two Vertices.
      */
     private void removeSharedEdges(Vertex v1, Vertex v2) {
-        for (int i = 0; i < v1.size(); i += 1) {
-            if (v1.get(i).dest == v2) {
-                v1.remove(i);
-                i -= 1;
+        for (Edge e : v1) {
+            if (e.dest == v2) {
+                v1.remove(e);
             }
         }
     }
@@ -334,7 +349,15 @@ public class Graph extends HashMap<Integer, Vertex> {
         randomEdge += upcomingEdges;
 
         Vertex vertexToDelete = upcomingVertex;
-        Vertex vertexToMerge = vertexToDelete.get(randomEdge).dest;
+
+        int i = 0;
+        Vertex vertexToMerge = null;
+        for (Edge e : vertexToDelete) {
+            if (i == randomEdge)
+                vertexToMerge = e.dest;
+            i++;
+        }
+
         this.mergeVertices(vertexToDelete.id, vertexToMerge.id);
     }
 
@@ -345,17 +368,23 @@ public class Graph extends HashMap<Integer, Vertex> {
      */
     public int getEdgeCount() {
 
-        int edgeCount = 0;
-        Iterator<Entry<Integer, Vertex>> it = this.entrySet().iterator();
-        Map.Entry<Integer, Vertex> pair;
-        while (it.hasNext()) {
-            pair = it.next();
-            edgeCount += pair.getValue().size();
-        }
-        if (!this.isDirected) {
-            edgeCount /= 2;
-        }
-        return edgeCount;
+        int total;
+        total = this.values().stream().mapToInt(value -> value.size()).sum();
+        return (!this.isDirected) ? total / 2 : total;
+    }
+
+    /**
+     * Returns the total weight of all of the edges in this Graph.
+     * 
+     * @return The total weight of all of the edges in this Graph.
+     */
+    public double getEdgeWeight() {
+
+        double total = this.entrySet().stream()
+                .mapToDouble(
+                        entry -> entry.getValue().stream().mapToDouble(edge -> edge.weight).sum())
+                .sum();
+        return (!this.isDirected) ? total / 2 : total;
     }
 
     /**
@@ -453,8 +482,8 @@ public class Graph extends HashMap<Integer, Vertex> {
         // inner loop...");
         currentVertex.seen = true;
         Vertex nextV = null;
-        for (int i = 0; i < currentVertex.size(); i += 1) {
-            nextV = currentVertex.get(i).dest;
+        for (Edge e : currentVertex) {
+            nextV = e.dest;
             if (!nextV.seen) {
                 this.sccRecurse(nextV.id);
             }
@@ -481,7 +510,7 @@ public class Graph extends HashMap<Integer, Vertex> {
 
         Map<Integer, Double> shortestPaths = new HashMap<Integer, Double>();
 
-        Comparator<Vertex> comparator = new VertexComparator();
+        Comparator<Vertex> comparator = new CompareVertexByDijkstraScore();
         int initialCapacity = (int) Math.round(Math.log(this.size()));
         PriorityQueue<Vertex> frontier = new PriorityQueue<>(initialCapacity, comparator);
 
@@ -492,7 +521,6 @@ public class Graph extends HashMap<Integer, Vertex> {
 
         int currentVertexId;
         Vertex currentVertex;
-        Edge currentEdge;
         Vertex startV = this.get(startVId);
 
         // Give startV a dijkstra score of 0 and add it to the frontier.
@@ -508,18 +536,17 @@ public class Graph extends HashMap<Integer, Vertex> {
             shortestPaths.put(currentVertex.id, currentVertex.dijkstraScore);
 
             // For each Edge attached to the current Vertex,
-            for (int i = 0; i < currentVertex.size(); i += 1) {
-                currentEdge = currentVertex.get(i);
+            for (Edge e : currentVertex) {
 
                 // If the destination Vertex hasn't already been logged into shortestPaths,
-                if (shortestPaths.get(currentEdge.dest.id) == null) {
+                if (shortestPaths.get(e.dest.id) == null) {
 
                     // Update the dijkstra score of the destination Vertex if the score has dropped.
-                    tempScore = currentVertex.dijkstraScore + currentEdge.weight;
-                    if (currentEdge.dest.dijkstraScore > tempScore) {
-                        frontier.remove(currentEdge.dest);
-                        currentEdge.dest.dijkstraScore = tempScore;
-                        frontier.add(currentEdge.dest);
+                    tempScore = currentVertex.dijkstraScore + e.weight;
+                    if (e.dest.dijkstraScore > tempScore) {
+                        frontier.remove(e.dest);
+                        e.dest.dijkstraScore = tempScore;
+                        frontier.add(e.dest);
                     }
                 }
             }
@@ -546,7 +573,7 @@ public class Graph extends HashMap<Integer, Vertex> {
      * @author Cameron Hudson
      * @date 2018-03-17
      */
-    private class VertexComparator implements Comparator<Vertex> {
+    private class CompareVertexByDijkstraScore implements Comparator<Vertex> {
 
         /**
          * Returns the difference between the dijkstra scores of two Vertices.
@@ -555,7 +582,22 @@ public class Graph extends HashMap<Integer, Vertex> {
         public int compare(Vertex v1, Vertex v2) {
             return (int) Math.round(v1.dijkstraScore - v2.dijkstraScore);
         }
+    }
 
+    /**
+     * A comparator that selects the Vertex with the lower minimum edge weight.
+     * 
+     * @author Cameron Hudson
+     * @date 2018-03-31
+     */
+    private class CompareVertexByMstScore implements Comparator<Vertex> {
+        /**
+         * Returns the difference between MST scores of two Vertices.
+         */
+        @Override
+        public int compare(Vertex v1, Vertex v2) {
+            return (int) Math.round(v1.mstScore - v2.mstScore);
+        }
     }
 
     /**
@@ -571,4 +613,104 @@ public class Graph extends HashMap<Integer, Vertex> {
                 .forEach(System.out::println);
     }
 
+    /**
+     * Returns the Minimum Spanning Tree (MST) of this Graph (returns null if there isn't one).
+     *
+     * @return The MST of this Graph.
+     */
+    public Graph getMST() {
+
+        // The MST will contain a copy of each vertex, but with only the edges that belong to the
+        // MST.
+        Graph mst = new Graph();
+
+        Comparator<Vertex> comparator = new CompareVertexByMstScore();
+        int initialCapacity = (int) Math.round(Math.log(this.size()));
+        PriorityQueue<Vertex> frontier = new PriorityQueue<>(initialCapacity, comparator);
+
+        // Initialize all mst scores to the maximum path length.
+        for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
+            entry.getValue().mstScore = this.MAXPATH;
+        }
+
+        Vertex startV = this.values().stream().findFirst().get();
+        mst.put(startV.id, new Vertex(startV.id));
+
+        for (Edge e : startV) {
+            /*
+             * After much bug diagnosing, I have found that we must store pointers to the Vertices
+             * of the *original* Graph ("this" Graph), not to the Vertices of the MST Graph. I tried
+             * to do it in terms of the MST graph, but Java began losing Edges from Vertices after
+             * about three layers of Vertex -> Edge -> Vertex -> Edge pointer bouncing. Instead, we
+             * will always refer to the original Graph to prevent "going deep". This is why we only
+             * store pointers to the Vertices of the original Graph in frontier, and why we only
+             * store our mstScores in the Vertices of the original Graph.
+             */
+            if (this.get(e.dest.id).mstScore > e.weight) {
+                this.get(e.dest.id).mstScore = e.weight;
+            }
+
+            frontier.add(this.get(e.dest.id));
+        }
+
+        Vertex currentVertex;
+        Edge relevantEdge = null;
+
+        // While there are still Vertices on the frontier,
+        while (frontier.size() > 0) {
+
+            // Pull the nearest Vertex from the frontier and add it to the MST.
+            currentVertex = frontier.poll();
+
+            relevantEdge = null;
+            for (Edge e : currentVertex) {
+                if (e.weight == this.get(currentVertex.id).mstScore && mst.containsKey(e.dest.id)) {
+                    relevantEdge = e;
+                    break;
+                }
+            }
+
+            mst.put(currentVertex.id, new Vertex(currentVertex.id));
+
+            int sourceVId = relevantEdge.dest.id;
+            int destVId = currentVertex.id;
+
+            // Add the edge to the MST. It connects to 2 vertices.
+            mst.get(sourceVId).add(new Edge(mst.get(destVId), relevantEdge.weight));
+            mst.get(destVId).add(new Edge(mst.get(sourceVId), relevantEdge.weight));
+
+            // For each Edge attached to the current Vertex,
+            for (Edge currentEdge : currentVertex) {
+
+                // If the destination Vertex hasn't already been logged into the MST,
+                if (!mst.containsKey(currentEdge.dest.id)) {
+
+                    // Attempt to remove the destination Vertex. (This prevents duplicates.)
+                    frontier.remove(this.get(currentEdge.dest.id));
+
+                    // If necessary, update the MST score of the destination Vertex if the score has
+                    // dropped.
+                    if (this.get(currentEdge.dest.id).mstScore > currentEdge.weight) {
+                        this.get(currentEdge.dest.id).mstScore = currentEdge.weight;
+                    }
+
+                    // Now put the Vertex back into the frontier.
+                    frontier.add(this.get(currentEdge.dest.id));
+                }
+            }
+        }
+
+        // For each Vertex in this Graph,
+        for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
+            currentVertex = entry.getValue();
+
+            // If the Vertex exists in this graph but not in the MST,
+            if (mst.get(currentVertex.id) == null) {
+
+                // Then this Graph has no MST.
+                return null;
+            }
+        }
+        return mst;
+    }
 }

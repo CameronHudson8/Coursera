@@ -1,14 +1,14 @@
 package algorithmsAndDataStructures;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 
 /**
  * This object is a Vertex connected to other Vertices by Edges.
  * 
  * @author Cameron Hudson
- * @date 2018-03-16
+ * @date 2018-03-31
  */
-public class Vertex extends ArrayList<Edge> {
+public class Vertex extends HashSet<Edge> {
 
     // Declare a serialVersionUID to make the compiler happy.
     private static final long serialVersionUID = 5083837790109150180L;
@@ -18,6 +18,7 @@ public class Vertex extends ArrayList<Edge> {
     public boolean seen = false;
     public int sccGroup;
     public double dijkstraScore;
+    public double mstScore;
 
     /**
      * Constructs a Vertex with the specified id.
@@ -33,8 +34,8 @@ public class Vertex extends ArrayList<Edge> {
      */
     public void print() {
         System.out.print("Vertex " + this.id + ": ");
-        for (int i = 0; i < this.size(); i += 1) {
-            this.get(i).print();
+        for (Edge e : this) {
+            e.print();
         }
         System.out.println("");
     }
@@ -48,8 +49,8 @@ public class Vertex extends ArrayList<Edge> {
         Vertex v = new Vertex(this.id);
         v.seen = this.seen;
         v.sccGroup = this.sccGroup;
-        for (int i = 0; i < this.size(); i += 1) {
-            v.add(this.get(i).copy());
+        for (Edge e : this) {
+            v.add(e.copy());
         }
 
         return v;
