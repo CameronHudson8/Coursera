@@ -4,18 +4,23 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -34,10 +39,12 @@ public class Graph extends HashMap<Integer, Vertex> {
 
     // Declare private variables.
     private boolean isDirected;
+    private boolean mstExists = true;
     private Deque<Integer> finishingOrder = new ArrayDeque<>();
     private boolean sccStep1;
     private int currentScc;
     private Map<Integer, Integer> sccGroups = new HashMap<Integer, Integer>();
+    private Set<int[]> hammingData = new HashSet<int[]>();
 
     /**
      * Constructs a graph without arguments.
@@ -58,7 +65,6 @@ public class Graph extends HashMap<Integer, Vertex> {
         this.isDirected = isDirected;
 
         // Read input from file, otherwise catch IOException.
-
         try {
             BufferedReader inputBR = new BufferedReader(new FileReader(new File(filename)));
             String line;
@@ -71,17 +77,28 @@ public class Graph extends HashMap<Integer, Vertex> {
                 case "edge list with header":
                     if (firstline) {
                         // Ignore the first line.
-                        firstline = false;
                         break;
                     }
-                    // no break; proceed to input the edge list as normal;
                 case "edge list":
                     this.parseEdgeListLine(line);
                     break;
+                case "hamming list with header":
+                    if (firstline) {
+                        // Ignore the first line.
+                        firstline = false;
+                        break;
+                    }
+                    // no break; proceed to input the hamming list as normal;
+                case "hamming list":
+                    this.parseHammingListLine(line);
+                    break;
                 default:
-                    System.out.println("Error: Unknown file format.");
-                    System.out.println("Please use either \"adjacency list\" or \"edge list\".");
+                    throw new Error("Error: Unknown file format.\n"
+                            + "Please use either \"adjacency list\", " + "\"edge list\", "
+                            + "\"edge list with header\", " + "\"hamming list\", "
+                            + "or \"hamming list with header\".");
                 }
+                firstline = false;
             }
             inputBR.close();
         } catch (IOException e) {
@@ -128,7 +145,7 @@ public class Graph extends HashMap<Integer, Vertex> {
 
             weight = (edgeData.length > 1) ? edgeData[1] : 1;
 
-            this.get(originId).add(new Edge(targetVertex, weight));
+            this.get(originId).add(new Edge(this.get(originId), targetVertex, weight));
         }
     }
 
@@ -152,7 +169,14 @@ public class Graph extends HashMap<Integer, Vertex> {
 
         // Add the edge.
         Vertex targetVertex = this.get(v2Id);
-        this.get(v1Id).add(new Edge(targetVertex, edgeWeight));
+        this.get(v1Id).add(new Edge(this.get(v1Id), targetVertex, edgeWeight));
+    }
+
+    private void parseHammingListLine(String line) {
+        // Convert the string to an array of bits and read them.
+        String delims = "[ ]+";
+        int[] coords = Arrays.stream(line.split(delims)).mapToInt(Integer::parseInt).toArray();
+        this.hammingData.add(coords);
     }
 
     /**
@@ -182,9 +206,9 @@ public class Graph extends HashMap<Integer, Vertex> {
                 v2Copy = outputGraph.get(v2.id);
                 weight = e.weight;
                 if (reverse) {
-                    v2Copy.add(new Edge(v1Copy, weight));
+                    v2Copy.add(new Edge(v2Copy, v1Copy, weight));
                 } else {
-                    v1Copy.add(new Edge(v2Copy, weight));
+                    v1Copy.add(new Edge(v1Copy, v2Copy, weight));
                 }
             }
         }
@@ -210,11 +234,8 @@ public class Graph extends HashMap<Integer, Vertex> {
 
         Vertex currentVertex;
 
-        Iterator<Entry<Integer, Vertex>> it = this.entrySet().iterator();
-        Map.Entry<Integer, Vertex> pair;
-        while (it.hasNext()) {
-            pair = it.next();
-            currentVertex = pair.getValue();
+        for (Entry<Integer, Vertex> entry : this.entrySet()) {
+            currentVertex = entry.getValue();
             for (Edge e : currentVertex) {
                 if (e.dest == v1) {
                     e.dest = v2;
@@ -231,9 +252,11 @@ public class Graph extends HashMap<Integer, Vertex> {
      * @param v2 The second of the two Vertices.
      */
     private void removeSharedEdges(Vertex v1, Vertex v2) {
-        for (Edge e : v1) {
+        Iterator<Edge> iter = v1.iterator();
+        while (iter.hasNext()) {
+            Edge e = iter.next();
             if (e.dest == v2) {
-                v1.remove(e);
+                iter.remove();
             }
         }
     }
@@ -275,9 +298,10 @@ public class Graph extends HashMap<Integer, Vertex> {
         Graph g;
         int cut;
         int minCut = this.getEdgeCount();
-        int currentProg, progPercent = 0;
-        System.out.println(
-                "|---------------------------------------------PROGRESS---------------------------------------------|");
+
+        // Initialize Progress Bar
+        ProgressBar pb = new ProgressBar(trials);
+
         for (int i = 0; i < trials; i += 1) {
             g = this.copy(false);
             while (g.size() > 2) {
@@ -290,12 +314,7 @@ public class Graph extends HashMap<Integer, Vertex> {
             if (minCut == 0) {
                 return minCut;
             }
-
-            currentProg = i * 100 / trials + 1;
-            if (currentProg > progPercent) {
-                progPercent = currentProg;
-                System.out.print("|");
-            }
+            pb.increment();
         }
         System.out.println("\n");
         return minCut;
@@ -500,6 +519,116 @@ public class Graph extends HashMap<Integer, Vertex> {
         }
     }
 
+    // /**
+    // * Constructs a PriorityQueue from this Graph's Vertices, sorted by the parameter specified.
+    // *
+    // * @param parameter The name of the parameter by which to sort the Vertices.
+    // * @return A PriorityQueue containing the Vertices in sorted order.
+    // */
+    // private PriorityQueue<Vertex> queueifyByVertex(String parameter) {
+    //
+    // Comparator<Vertex> comparator = new Comparator<Vertex>() {
+    // @Override
+    // public int compare(Vertex v1, Vertex v2) {
+    // int val1 = (int) retrievePropVal(v1, parameter);
+    // int val2 = (int) retrievePropVal(v2, parameter);
+    // return val1 - val2;
+    // }
+    // };
+    //
+    // int initialCapacity = (int) Math.round(Math.log(this.size()));
+    // PriorityQueue<Vertex> outputQueue = new PriorityQueue<Vertex>(initialCapacity, comparator);
+    //
+    // // Initialize all dijkstra scores to the maximum path length.
+    // for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
+    // outputQueue.add(entry.getValue());
+    // }
+    // return outputQueue;
+    //
+    // }
+
+    /**
+     * Constructs a PriorityQueue from this Graph's Edges, sorted by the parameter specified.
+     *
+     * @param parameter The name of the parameter by which to sort the Edges.
+     * @return A PriorityQueue containing the Edges in sorted order.
+     */
+    private PriorityQueue<Edge> queueifyByEdge(String parameter) {
+
+        Comparator<Edge> comparator = new Comparator<Edge>() {
+            @Override
+            public int compare(Edge v1, Edge v2) {
+                double val1 = (double) retrievePropVal(v1, parameter);
+                double val2 = (double) retrievePropVal(v2, parameter);
+                return (int) Math.round(val1 - val2);
+            }
+        };
+
+        int initialCapacity = (int) Math.round(Math.log(this.size()));
+        PriorityQueue<Edge> outputQueue = new PriorityQueue<Edge>(initialCapacity, comparator);
+
+        // Add all edges to the queue, but be sure to remove duplicates.
+        for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
+            Vertex v = entry.getValue();
+            for (Edge e : v) {
+                outputQueue.add(e);
+                if (!this.isDirected) {
+                    this.removeComplement(e);
+                }
+            }
+        }
+        return outputQueue;
+
+    }
+
+    /**
+     * From this undirected Graph, remove the edge corresponding to the complement.
+     *
+     * @param e The edge whose complement to remove.
+     */
+    private void removeComplement(Edge e) {
+        // Remove the reverse edge.
+        Vertex vComp = this.get(e.dest.id);
+        Boolean cleared = false;
+        Iterator<Edge> it = vComp.iterator();
+        Edge e2;
+        while (!cleared) {
+            // Iterate through the Vertex until the matching edge is found.
+            e2 = it.next();
+            if (e2.dest.id == e.source.id) {
+                vComp.remove(e2);
+                cleared = true;
+            }
+        }
+    }
+
+    /**
+     * Given an object and the name of the property, returns the value of that property.
+     *
+     * @param o The object from which to retrieve the property value.
+     * @param parameter The property whose value to retrieve.
+     * @return The value of the object's property.
+     */
+    private static Object retrievePropVal(Object o, String parameter) {
+
+        Field f = null;
+        Class<?> c = o.getClass();
+        Object val = null;
+        try {
+            f = c.getDeclaredField(parameter);
+        } catch (NoSuchFieldException | SecurityException e) {
+            e.printStackTrace();
+        }
+        f.setAccessible(true);
+        try {
+            val = f.get(o);
+        } catch (IllegalArgumentException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+
+        return val;
+    }
+
     /**
      * Finds the length of the shortest path from a starting Vertex to each other Vertex.
      *
@@ -519,7 +648,6 @@ public class Graph extends HashMap<Integer, Vertex> {
             entry.getValue().dijkstraScore = this.MAXPATH;
         }
 
-        int currentVertexId;
         Vertex currentVertex;
         Vertex startV = this.get(startVId);
 
@@ -552,18 +680,12 @@ public class Graph extends HashMap<Integer, Vertex> {
             }
         }
 
-        // For each Vertex in the graph,
-        for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
-            currentVertexId = entry.getKey();
-            currentVertex = entry.getValue();
-
-            // If the Vertex exists in this graph but not in shortestPaths,
-            if (shortestPaths.get(currentVertexId) == null) {
-
-                // Create an entry in shortestPaths (with the previously assigned value of MAXPATH).
-                shortestPaths.put(currentVertexId, currentVertex.dijkstraScore);
+        // Check for Vertices that still don't exist in shortestPaths.
+        this.forEach((id, v) -> {
+            if (shortestPaths.get(id) == null) {
+                shortestPaths.put(id, v.dijkstraScore);
             }
-        }
+        });
         return shortestPaths;
     }
 
@@ -676,8 +798,10 @@ public class Graph extends HashMap<Integer, Vertex> {
             int destVId = currentVertex.id;
 
             // Add the edge to the MST. It connects to 2 vertices.
-            mst.get(sourceVId).add(new Edge(mst.get(destVId), relevantEdge.weight));
-            mst.get(destVId).add(new Edge(mst.get(sourceVId), relevantEdge.weight));
+            mst.get(sourceVId)
+                    .add(new Edge(mst.get(sourceVId), mst.get(destVId), relevantEdge.weight));
+            mst.get(destVId)
+                    .add(new Edge(mst.get(destVId), mst.get(sourceVId), relevantEdge.weight));
 
             // For each Edge attached to the current Vertex,
             for (Edge currentEdge : currentVertex) {
@@ -700,17 +824,148 @@ public class Graph extends HashMap<Integer, Vertex> {
             }
         }
 
-        // For each Vertex in this Graph,
-        for (Map.Entry<Integer, Vertex> entry : this.entrySet()) {
-            currentVertex = entry.getValue();
+        // Check for Vertices that still don't exist in the MST.
+        this.forEach((id, v) -> {
+            if (mst.get(id) == null) {
+                this.mstExists = false;
+            }
+        });
+        return this.mstExists ? mst : null;
+    }
 
-            // If the Vertex exists in this graph but not in the MST,
-            if (mst.get(currentVertex.id) == null) {
+    /**
+     * Cluster the vertices of this Graph into the specified number of clusters, then return the
+     * distance (weight) between the two nearest clusters.
+     *
+     * @param numClusters The number of clusters to form.
+     * @return The distance (weight) between the two nearest clusters.
+     */
+    public double getClusterSpacing(int numClusters) {
 
-                // Then this Graph has no MST.
-                return null;
+        // Place all edges into heap, sorted based on weight.
+        PriorityQueue<Edge> edgesByWeight = this.queueifyByEdge("weight");
+
+        Edge e;
+        Vertex v1, v2;
+        int clusters = this.size();
+
+        // While there are > numClusters clusters,
+        while (clusters > numClusters) {
+
+            // Pull the edge with the minimum weight.
+            e = edgesByWeight.poll();
+            v1 = this.get(e.source.id);
+            v2 = this.get(e.dest.id);
+
+            // If the two vertices don't already share a terminal parent,
+            if (this.getTerminalParent(v1) != this.getTerminalParent(v2)) {
+
+                // Then subordinate v2's terminal parent to v1's terminal parent.
+                reassignParents(v1, v2);
+
+                // Count this cluster operation.
+                clusters -= 1;
             }
         }
-        return mst;
+
+        double spacing = -1;
+        while (edgesByWeight.size() > 0 && spacing == -1) {
+            e = edgesByWeight.poll();
+            v1 = this.get(e.source.id);
+            v2 = this.get(e.dest.id);
+            if (getTerminalParent(v1) != getTerminalParent(v2)) {
+                spacing = e.weight;
+            }
+        }
+
+        return spacing;
+    }
+
+    /**
+     * Recursively find the terminal parent of the given Vertex.
+     * 
+     * @param v1 The given Vertex.
+     * @return Its terminal parent.
+     */
+    private Vertex getTerminalParent(Vertex v1) {
+        while (v1.parent != v1) {
+            v1 = v1.parent;
+        }
+        return v1;
+    }
+
+    /**
+     * Recursively reassign all of a Vertex's parents.
+     *
+     * @param v1 The Vertex whose parents should be reassigned.
+     * @param v2 The Vertex to which v1's parents will be reassigned.
+     */
+    private void reassignParents(Vertex v1, Vertex v2) {
+        if (v1.parent != v1) {
+            reassignParents(v1.parent, v2);
+        }
+        v1.parent = v2;
+    }
+
+    /**
+     * Determine the number of clusters that result from the spacing threshold given.
+     * 
+     * @param minSpacing The spacing threshold.
+     */
+    public List<Integer> clusterHamming(int minSpacing) {
+        int[] v0, v1, v2;
+        int dist;
+        List<Integer> clusters = new ArrayList<Integer>();
+        Deque<int[]> queue = new ArrayDeque<int[]>();
+        Set<int[]> tempHammingData = hammingData;
+        ProgressBar pb = new ProgressBar(tempHammingData.size());
+
+        int currentClusterSize;
+        Iterator<int[]> it = tempHammingData.iterator();
+        while (it.hasNext()) {
+            v0 = it.next();
+            queue.add(v0);
+            it.remove();
+            currentClusterSize = 1;
+            pb.increment();
+
+            while (!queue.isEmpty()) {
+                v1 = queue.poll();
+
+                while (it.hasNext()) {
+                    v2 = it.next();
+                    dist = hammingDist(v1, v2);
+
+                    // and if the spacing is <= minSpacing,
+                    if (dist <= minSpacing) {
+
+                        // then put v2 in the cluster to which v0 belongs.
+                        queue.add(v2);
+                        it.remove();
+                        currentClusterSize += 1;
+                        pb.increment();
+                    }
+                }
+                it = tempHammingData.iterator();
+            }
+            clusters.add(currentClusterSize);
+        }
+        return clusters;
+    }
+
+    /**
+     * Compute the Hamming distance between two points.
+     * 
+     * @param v1 One point.
+     * @param v2 Another point.
+     * @return The distance between the two.
+     */
+    private static int hammingDist(int[] v1, int[] v2) {
+
+        int dist = 0;
+        for (int i = 0; i < v1.length; i += 1) {
+            dist += v1[i] ^ v2[i];
+        }
+        return dist;
     }
 }

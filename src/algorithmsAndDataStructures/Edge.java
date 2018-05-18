@@ -9,6 +9,7 @@ package algorithmsAndDataStructures;
 public class Edge {
 
     // Declare public variables.
+    public Vertex source;
     public Vertex dest;
     public double weight;
 
@@ -18,7 +19,9 @@ public class Edge {
      * @param dest The destination Vertex.
      * @param weight The weight (AKA length) of this edge.
      */
-    public Edge(Vertex dest, double weight) {
+    public Edge(Vertex source, Vertex dest, double weight) {
+        
+        this.source = source;
         this.dest = dest;
         this.weight = weight;
     }
@@ -36,7 +39,7 @@ public class Edge {
      * @return A deep copy of this Edge.
      */
     public Edge copy() {
-        Edge e = new Edge(this.dest.copy(), this.weight);
+        Edge e = new Edge(this.source.copy(), this.dest.copy(), this.weight);
         return e;
     }
 

@@ -18,7 +18,8 @@ public class Main {
         // Assignments.assignment2_2();
         // Assignments.assignment2_3();
         // Assignments.assignment2_4();
-        Assignments.assignment3_1();
-
+        // Assignments.assignment3_1();
+        Assignments.assignment3_2();
+        System.out.println("Done.");
     }
 }

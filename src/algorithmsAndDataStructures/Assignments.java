@@ -9,6 +9,7 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -204,7 +205,7 @@ public class Assignments {
      */
     public static void assignment3_1() {
 
-        // ------ Tasks 1 and 2 ------//
+        // ------ Tasks 1 and 2 ------ //
 
         String FILENAME = "resources/_642c2ce8f3abe387bdff636d708cdb26_jobs.txt";
 
@@ -245,13 +246,49 @@ public class Assignments {
         System.out.println("totalScore when prioritizing by (weight / length) = "
                 + jqRatio.getTotalScore().toString());
 
-        // ------ Task 3 ------//
+        // ------ Task 3 ------ //
 
         FILENAME = "resources/_d4f3531eac1d289525141e95a2fea52f_edges.txt";
 
         Graph myGraph = new Graph(FILENAME, "edge list with header", false, false);
         Graph mst = myGraph.getMST();
         System.out.println("Total edge weight = " + mst.getEdgeWeight());
+
+    }
+
+    /**
+     * Assignment 3.2
+     * 
+     * Task1: Given an edge list with lengths, find the maximum spacing of 4 clusters.
+     * 
+     * Task2: Given an edge list in Hamming format, compute the largest number of clusters that
+     * still results in a spacing of at least 3.
+     */
+    public static void assignment3_2() {
+
+        String FILENAME;
+        Graph myGraph;
+
+        // ------ Task 1 ------ //
+
+        System.out.println("// ------ Task 1 ------ //");
+        FILENAME = "resources/_fe8d0202cd20a808db6a4d5d06be62f4_clustering1.txt";
+        myGraph = new Graph(FILENAME, "edge list with header", false, false);
+        double spacing = myGraph.getClusterSpacing(4);
+        System.out.println("Spacing = " + spacing);
+
+        // ------ Task 2 ------ //
         
+        System.out.println("// ------ Task 2 ------ //");
+        FILENAME = "resources/_fe8d0202cd20a808db6a4d5d06be62f4_clustering_big.txt";
+        myGraph = new Graph(FILENAME, "hamming list with header", false, false);
+        List<Integer> clusters = myGraph.clusterHamming(2);
+        System.out.println("Found " + clusters.size() + " clusters.");
+        int total = 0;
+        for (int e : clusters) {
+            total += e;
+        }
+        System.out.println("Total vertices processed = " + total + ".");
+
     }
 }

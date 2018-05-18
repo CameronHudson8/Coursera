@@ -10,15 +10,19 @@ import java.util.HashSet;
  */
 public class Vertex extends HashSet<Edge> {
 
-    // Declare a serialVersionUID to make the compiler happy.
-    private static final long serialVersionUID = 5083837790109150180L;
+    /**
+     * Include a serialVersionUID to satisfy the compiler.
+     */
+    private static final long serialVersionUID = -6696375866206902524L;
 
     // Declare public variables.
     public int id;
     public boolean seen = false;
     public int sccGroup;
+    public int parentId;
     public double dijkstraScore;
     public double mstScore;
+    public Vertex parent = this;
 
     /**
      * Constructs a Vertex with the specified id.
@@ -27,6 +31,7 @@ public class Vertex extends HashSet<Edge> {
      */
     public Vertex(int id) {
         this.id = id;
+        this.parentId = id;
     }
 
     /**
